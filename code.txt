@@ -1,0 +1,136 @@
+#define BLYNK_TEMPLATE_ID           "TMPL3GzCwxfZB"
+#define BLYNK_TEMPLATE_NAME         "Quickstart Template"
+#define BLYNK_AUTH_TOKEN            "xm7k9tpw29OqmUX8po-05mWymhag9y7h"
+
+/* Comment this out to disable prints and save space */
+#include <SoftwareSerial.h>
+
+//Create software serial object to communicate with SIM800L
+SoftwareSerial mySerial(D3, D2); //SIM800L Tx & Rx is connected to NODEMCU D3 & D2
+
+
+
+
+#define BLYNK_PRINT Serial
+
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DHT.h>
+
+#define DHTPIN 14 // DHT11 sensor pin D5
+
+#define DHTTYPE DHT11 // DHT11 sensor type
+DHT dht(DHTPIN, DHTTYPE);
+
+#include <Wire.h>
+int waterPumpPin = 5;  // Water pump pin
+int motorFan = 15; // Exhaust pin connected d8
+int mq2Pin = A0; // MQ2 sensor pin
+int SmokeValue;
+int temp;
+int hum;
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "Saistar";
+char pass[] = "asdfghjkll";
+
+void setup()
+{
+
+  pinMode(motorFan, OUTPUT);
+  pinMode(waterPumpPin, OUTPUT);
+  pinMode(mq2Pin, INPUT);
+ Serial.begin(9600);
+ Serial.println("Initializing..."); 
+  delay(1000);
+
+ mySerial.begin(9600);
+ dht.begin();
+ Blynk.begin(auth, ssid, pass);
+}
+
+void loop()
+{
+ Blynk.run();
+
+
+   SmokeValue = analogRead(mq2Pin);
+   Serial.print("SmokeValue: ");
+  Serial.println(SmokeValue);
+  delay(1);
+
+
+ 
+
+ float temp = dht.readTemperature();
+ float hum = dht.readHumidity();
+ if (isnan(temp) || isnan(hum)) {
+ Serial.println("Failed to read from DHT sensor!");
+ return;
+ }
+  Serial.print("Temp: ");
+  Serial.println(temp);
+  Serial.print(" hum: ");
+  Serial.println(hum);
+  delay(2000);
+
+if (SmokeValue > 50) {
+    // Fire detected, take necessary actions
+    digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+    delay(100);
+    digitalWrite(motorFan, HIGH);
+    digitalWrite(waterPumpPin, HIGH);
+    Serial.println("Fire Detected!");
+    Serial.println("Water Pump ON");
+    Serial.println("Fan ON");
+    delay(1000);
+     //Blynk.email("email@gmail.com", "Alert", "Gas Leakage Detected!");
+    //Blynk.logEvent("gas_alert","Gas Leakage Detected");
+     
+  } 
+else {
+    digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
+  delay(100); 
+    digitalWrite(motorFan, LOW);
+    digitalWrite(waterPumpPin, LOW);
+    Serial.println("No Fire");
+    Serial.println("Water Pump OFF");
+    Serial.println("Fan OFF");
+    delay(1000);
+  }
+ 
+   mySerial.println("AT"); //Once the handshake test is successful, it will back to OK
+  updateSerial();
+
+  mySerial.println("AT+CMGF=1"); // Configuring TEXT mode
+  updateSerial();
+  mySerial.println("AT+CMGS=\"phone no.\"");//change ZZ with country code and xxxxxxxxxxx with phone number to sms
+  updateSerial();
+  mySerial.print("FIRE DETECTED"); //text content sms 
+  updateSerial();
+  mySerial.write(26);
+  delay(10000);
+ mySerial.println("ATD phone no.;");// to make a call
+ 
+
+
+  
+
+Blynk.virtualWrite(V1, temp);
+ Blynk.virtualWrite(V2, hum);
+ Blynk.virtualWrite(V3, SmokeValue);
+  
+  
+}
+
+void updateSerial()
+{
+  delay(500);
+  while (Serial.available()) 
+  {
+    mySerial.write(Serial.read());//Forward what Serial received to Software Serial Port
+  }
+  while(mySerial.available()) 
+  {
+    Serial.write(mySerial.read());//Forward what Software Serial received to Serial Port
+  }
+}
